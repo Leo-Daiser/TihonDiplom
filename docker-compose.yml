@@ -1,0 +1,34 @@
+services:
+  app:
+    build: .
+    container_name: tihon_diplom_app
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - .:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  db:
+    image: postgres:16
+    container_name: tihon_diplom_db
+    environment:
+      POSTGRES_DB: tihon_diplom
+      POSTGRES_USER: tihon_user
+      POSTGRES_PASSWORD: tihon_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tihon_user -d tihon_diplom"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  postgres_data:
