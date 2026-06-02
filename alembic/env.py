@@ -5,8 +5,9 @@ from sqlalchemy import engine_from_config, pool
 
 from app.core.config import get_settings
 from app.db.base import Base
+import app.models  # noqa: F401
 
-# Здесь подключается metadata всех ORM-моделей. На первом этапе моделей еще нет.
+# Импорт моделей нужен Alembic, чтобы он видел metadata и мог строить миграции.
 target_metadata = Base.metadata
 
 config = context.config
