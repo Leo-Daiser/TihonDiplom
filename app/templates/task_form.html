@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Новая задача — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Создание</p>
+    <h1>Новая задача</h1>
+  </div>
+  <a class="secondary-link" href="/tasks">К списку</a>
+</section>
+
+<section class="panel form-panel">
+  <form method="post" action="/tasks/new" class="form-grid">
+    <label class="wide">
+      <span>Название</span>
+      <input type="text" name="title" required placeholder="Например: проверить резервное копирование">
+    </label>
+    <label class="wide">
+      <span>Описание</span>
+      <textarea name="description" rows="5" placeholder="Краткое описание задачи"></textarea>
+    </label>
+    <label>
+      <span>Исполнитель</span>
+      <select name="assignee_id">
+        <option value="">Не назначен</option>
+        {% for item in users %}
+        <option value="{{ item.id }}">{{ item.full_name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Статус</span>
+      <select name="status_code">
+        {% for status in statuses %}
+        <option value="{{ status.code }}" {% if status.code == 'new' %}selected{% endif %}>{{ status.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Приоритет</span>
+      <select name="priority_code">
+        {% for priority in priorities %}
+        <option value="{{ priority.code }}" {% if priority.code == 'medium' %}selected{% endif %}>{{ priority.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <div class="form-actions wide">
+      <button type="submit">Создать задачу</button>
+    </div>
+  </form>
+</section>
+{% endblock %}
