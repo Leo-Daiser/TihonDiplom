@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Задачи — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Задачи</p>
+    <h1>Список задач</h1>
+  </div>
+  {% if can_manage %}<a class="primary-link" href="/tasks/new">Новая задача</a>{% endif %}
+</section>
+
+<section class="panel compact-panel">
+  <form class="filters" method="get" action="/tasks">
+    <label>
+      <span>Статус</span>
+      <select name="status_code">
+        <option value="">Все</option>
+        {% for status in statuses %}
+        <option value="{{ status.code }}" {% if filters.status_code == status.code %}selected{% endif %}>{{ status.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Приоритет</span>
+      <select name="priority_code">
+        <option value="">Все</option>
+        {% for priority in priorities %}
+        <option value="{{ priority.code }}" {% if filters.priority_code == priority.code %}selected{% endif %}>{{ priority.name }}</option>
+        {% endfor %}
+      </select>
+    </label>
+    <label>
+      <span>Источник</span>
+      <select name="source_type">
+        <option value="">Все</option>
+        <option value="manual" {% if filters.source_type == 'manual' %}selected{% endif %}>Ручная</option>
+        <option value="zabbix" {% if filters.source_type == 'zabbix' %}selected{% endif %}>Zabbix</option>
+      </select>
+    </label>
+    <button type="submit">Применить</button>
+  </form>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Название</th>
+          <th>Статус</th>
+          <th>Приоритет</th>
+          <th>Источник</th>
+          <th>Исполнитель</th>
+          <th>Создана</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for task in tasks %}
+        <tr>
+          <td>#{{ task.id }}</td>
+          <td><a href="/tasks/{{ task.id }}">{{ task.title }}</a></td>
+          <td><span class="badge">{{ task.status.name }}</span></td>
+          <td><span class="badge muted priority-{{ task.priority.code }}">{{ task.priority.name }}</span></td>
+          <td>{{ task.source_type }}</td>
+          <td>{{ task.assignee.full_name if task.assignee else 'Не назначен' }}</td>
+          <td>{{ task.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty">По выбранным фильтрам задач нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
