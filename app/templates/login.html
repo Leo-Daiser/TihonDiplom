@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Вход — IT Workflow</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="login-body">
+  <main class="login-wrap">
+    <section class="login-card">
+      <div class="login-kicker">IT Department Workflow</div>
+      <h1>Вход в систему</h1>
+      <p>Прототип системы взаимодействия сотрудников ИТ-подразделения.</p>
+
+      {% if error %}
+      <div class="alert">{{ error }}</div>
+      {% endif %}
+
+      <form method="post" action="/login" class="form-stack">
+        <label>
+          <span>Email</span>
+          <input type="email" name="email" value="admin@example.com" required>
+        </label>
+        <label>
+          <span>Пароль</span>
+          <input type="password" name="password" value="admin12345" required>
+        </label>
+        <button type="submit">Войти</button>
+      </form>
+
+      <div class="demo-accounts">
+        <span>Демо-доступ:</span>
+        <code>admin@example.com / admin12345</code>
+      </div>
+    </section>
+  </main>
+</body>
+</html>
