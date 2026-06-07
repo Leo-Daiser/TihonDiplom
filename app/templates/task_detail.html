@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}Задача{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div><p class="eyebrow">Задача #{{ task.id }}</p><h1>{{ task.title }}</h1></div>
+  <a class="secondary-link" href="/tasks">К списку</a>
+</section>
+
+<section class="detail-grid">
+  <article class="panel task-main">
+    <div class="meta-row">
+      <span class="badge">{{ task.status.name }}</span>
+      <span class="badge muted">{{ task.priority.name }}</span>
+      <span class="source-label">{{ task.source_type }}</span>
+    </div>
+    <h2>Описание</h2>
+    <p class="description">{{ task.description or 'Описание не указано' }}</p>
+    <div class="info-grid">
+      <div><span>Автор</span><strong>{{ task.creator.full_name }}</strong></div>
+      <div><span>Исполнитель</span><strong>{{ task.assignee.full_name if task.assignee else 'Не назначен' }}</strong></div>
+      <div><span>Создана</span><strong>{{ task.created_at.strftime('%d.%m.%Y %H:%M') }}</strong></div>
+      <div><span>Обновлена</span><strong>{{ task.updated_at.strftime('%d.%m.%Y %H:%M') }}</strong></div>
+    </div>
+  </article>
+
+  <aside class="panel side-panel">
+    <h2>Статус</h2>
+    <form method="post" action="/tasks/{{ task.id }}/status" class="form-stack small">
+      <label><span>Новый статус</span><select name="status_code">
+        {% for status in statuses %}<option value="{{ status.code }}" {% if status.id == task.status_id %}selected{% endif %}>{{ status.name }}</option>{% endfor %}
+      </select></label>
+      <button type="submit">Сохранить</button>
+    </form>
+  </aside>
+</section>
+
+<section class="panel">
+  <div class="panel-head"><h2>Комментарии</h2></div>
+  <div class="comments">
+    {% for comment in task.comments %}
+    <article class="comment"><div class="comment-head"><strong>Пользователь #{{ comment.author_id }}</strong><span>{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span></div><p>{{ comment.text }}</p></article>
+    {% else %}<p class="empty left">Комментариев пока нет</p>{% endfor %}
+  </div>
+  <form method="post" action="/tasks/{{ task.id }}/comments" class="comment-form">
+    <textarea name="text" rows="3" placeholder="Добавить комментарий" required></textarea>
+    <button type="submit">Добавить</button>
+  </form>
+</section>
+{% endblock %}
