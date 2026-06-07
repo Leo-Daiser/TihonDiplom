@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+{% block title %}Инциденты — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Мониторинг</p>
+    <h1>Инциденты</h1>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Событие</th><th>Хост</th><th>Важность</th><th>Статус</th><th>Задача</th><th>Получено</th></tr></thead>
+      <tbody>
+      {% for event in events %}
+        <tr>
+          <td>#{{ event.id }}</td>
+          <td>{{ event.trigger_name or event.external_event_id }}</td>
+          <td>{{ event.host or '—' }}</td>
+          <td><span class="badge muted">{{ event.severity or '—' }}</span></td>
+          <td>{{ event.status }}</td>
+          <td>{% if event.task %}<a href="/tasks/{{ event.task.id }}">#{{ event.task.id }}</a>{% else %}—{% endif %}</td>
+          <td>{{ event.received_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="7" class="empty">Событий мониторинга пока нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
