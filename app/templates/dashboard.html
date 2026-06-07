@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+{% block title %}Главная — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Обзор</p>
+    <h1>Рабочая панель</h1>
+  </div>
+  <a class="primary-link" href="/tasks/new">Новая задача</a>
+</section>
+
+<section class="stats-grid">
+  <article class="stat-card"><span>Всего задач</span><strong>{{ stats.total }}</strong></article>
+  <article class="stat-card"><span>Новые</span><strong>{{ stats.new }}</strong></article>
+  <article class="stat-card"><span>В работе</span><strong>{{ stats.in_progress }}</strong></article>
+  <article class="stat-card"><span>Завершены</span><strong>{{ stats.done }}</strong></article>
+  <article class="stat-card"><span>Инциденты</span><strong>{{ stats.incidents }}</strong></article>
+</section>
+
+<section class="panel">
+  <div class="panel-head">
+    <h2>Последние задачи</h2>
+    <a href="/tasks">Открыть список</a>
+  </div>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Задача</th>
+          <th>Статус</th>
+          <th>Приоритет</th>
+          <th>Исполнитель</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for task in recent_tasks %}
+        <tr>
+          <td>#{{ task.id }}</td>
+          <td><a href="/tasks/{{ task.id }}">{{ task.title }}</a></td>
+          <td><span class="badge">{{ task.status.name }}</span></td>
+          <td><span class="badge muted">{{ task.priority.name }}</span></td>
+          <td>{{ task.assignee.full_name if task.assignee else 'Не назначен' }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty">Задач пока нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
