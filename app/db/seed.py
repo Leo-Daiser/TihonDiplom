@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.integration_setting import IntegrationSetting
 from app.models.role import Role
@@ -33,6 +34,12 @@ INTEGRATIONS = [
     {"system": "rocketchat", "is_enabled": False, "config": {"description": "Отправка уведомлений"}},
     {"system": "passbolt", "is_enabled": False, "config": {"description": "Ссылки на секреты без хранения секретов в системе"}},
     {"system": "minio", "is_enabled": False, "config": {"description": "Хранение файловых вложений"}},
+]
+
+DEMO_USERS = [
+    {"email": "admin@example.com", "full_name": "Администратор системы", "password": "admin12345", "role": "admin"},
+    {"email": "manager@example.com", "full_name": "Руководитель ИТ-подразделения", "password": "manager12345", "role": "manager"},
+    {"email": "worker@example.com", "full_name": "Исполнитель ИТ-подразделения", "password": "worker12345", "role": "worker"},
 ]
 
 
@@ -84,29 +91,27 @@ def seed_integrations(db: Session) -> None:
 
 
 def seed_users(db: Session) -> None:
-    admin_role = db.query(Role).filter_by(code="admin").one()
-    manager_role = db.query(Role).filter_by(code="manager").one()
-    worker_role = db.query(Role).filter_by(code="worker").one()
+    roles_by_code = {role.code: role for role in db.query(Role).all()}
 
-    # Пароли будут нормально хешироваться на этапе авторизации. Сейчас фиксируется только стартовая структура данных.
-    get_or_create(
-        db,
-        User,
-        {"email": "admin@example.com"},
-        {"full_name": "Администратор системы", "hashed_password": "temporary-admin-password-hash", "role_id": admin_role.id, "is_active": True},
-    )
-    get_or_create(
-        db,
-        User,
-        {"email": "manager@example.com"},
-        {"full_name": "Руководитель ИТ-подразделения", "hashed_password": "temporary-manager-password-hash", "role_id": manager_role.id, "is_active": True},
-    )
-    get_or_create(
-        db,
-        User,
-        {"email": "worker@example.com"},
-        {"full_name": "Исполнитель ИТ-подразделения", "hashed_password": "temporary-worker-password-hash", "role_id": worker_role.id, "is_active": True},
-    )
+    for item in DEMO_USERS:
+        role = roles_by_code[item["role"]]
+        user = get_or_create(
+            db,
+            User,
+            {"email": item["email"]},
+            {
+                "full_name": item["full_name"],
+                "hashed_password": hash_password(item["password"]),
+                "role_id": role.id,
+                "is_active": True,
+            },
+        )
+
+        # Для демонстрационной базы пароль обновляется повторным запуском seed, чтобы не зависеть от старых временных хешей.
+        user.full_name = item["full_name"]
+        user.role_id = role.id
+        user.is_active = True
+        user.hashed_password = hash_password(item["password"])
 
 
 def run_seed() -> None:
