@@ -1,0 +1,31 @@
+{% extends "base.html" %}
+{% block title %}Аудит — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Журнал</p>
+    <h1>Аудит действий</h1>
+  </div>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Действие</th><th>Сущность</th><th>Пользователь</th><th>Дата</th></tr></thead>
+      <tbody>
+      {% for entry in entries %}
+        <tr>
+          <td>#{{ entry.id }}</td>
+          <td><span class="badge">{{ entry.action }}</span></td>
+          <td>{{ entry.entity_type }}{% if entry.entity_id %} #{{ entry.entity_id }}{% endif %}</td>
+          <td>{{ entry.actor.full_name if entry.actor else 'Система' }}</td>
+          <td>{{ entry.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+        </tr>
+      {% else %}
+        <tr><td colspan="5" class="empty">Записей аудита пока нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
