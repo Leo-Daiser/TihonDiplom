@@ -1,11 +1,12 @@
 from urllib.parse import quote
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
 from app.api.tasks import ensure_task_access
+from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.attachment import Attachment
 from app.models.task import Task
@@ -15,6 +16,27 @@ from app.services.audit_service import write_audit_log
 from app.services.storage_service import StorageService, get_storage_service
 
 router = APIRouter(prefix="/api/v1", tags=["attachments"])
+
+
+def get_user_from_web_or_api(request: Request, db: Session) -> User:
+    """Скачивание поддерживает API-токен и web-cookie, потому что кнопка в UI не отправляет Authorization header."""
+    auth_header = request.headers.get("authorization") or ""
+    token = None
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header.split(" ", 1)[1]
+    if token is None:
+        token = request.cookies.get("access_token")
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Требуется токен доступа")
+    try:
+        payload = decode_access_token(token)
+        user_id = int(payload.get("sub"))
+    except Exception:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Недействительный токен доступа")
+    user = db.query(User).options(joinedload(User.role)).filter(User.id == user_id, User.is_active.is_(True)).first()
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Пользователь не найден или отключен")
+    return user
 
 
 @router.get("/tasks/{task_id}/attachments", response_model=list[AttachmentResponse])
@@ -92,11 +114,12 @@ def get_attachment_download_url(
 @router.get("/attachments/{attachment_id}/open")
 def open_attachment(
     attachment_id: int,
+    request: Request,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
     storage: StorageService = Depends(get_storage_service),
 ):
-    """Файл отдается через приложение: браузеру не нужно иметь прямой доступ к MinIO."""
+    """Файл отдается через приложение: браузеру не нужен прямой доступ к MinIO."""
+    current_user = get_user_from_web_or_api(request, db)
     attachment = db.get(Attachment, attachment_id)
     if attachment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Вложение не найдено")
