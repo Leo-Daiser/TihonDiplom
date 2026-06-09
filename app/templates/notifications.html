@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Уведомления — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div><p class="eyebrow">Интеграции</p><h1>Журнал уведомлений</h1></div>
+  <a class="secondary-link" href="/integrations/rocketchat">Тест Rocket.Chat</a>
+</section>
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>ID</th><th>Канал</th><th>Статус</th><th>Задача</th><th>Создано</th><th>Ответ</th></tr></thead>
+      <tbody>
+        {% for item in notifications %}
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.channel }}</td>
+          <td><span class="badge muted">{{ item.status }}</span></td>
+          <td>{% if item.task_id %}<a href="/tasks/{{ item.task_id }}">#{{ item.task_id }}</a>{% else %}—{% endif %}</td>
+          <td>{{ item.created_at.strftime('%d.%m.%Y %H:%M') }}</td>
+          <td>{{ item.response or '—' }}</td>
+        </tr>
+        {% else %}<tr><td colspan="6" class="empty">Уведомлений пока нет</td></tr>{% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
