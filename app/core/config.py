@@ -14,6 +14,12 @@ class Settings(BaseSettings):
     access_token_expire_minutes: int = 1440
     jwt_algorithm: str = "HS256"
     zabbix_webhook_token: str = "local-zabbix-token"
+    minio_endpoint: str = "minio:9000"
+    minio_public_endpoint: str = "127.0.0.1:9000"
+    minio_access_key: str = "local-access-key"
+    minio_secret_key: str = "local-secret-key"
+    minio_bucket: str = "task-attachments"
+    minio_secure: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
