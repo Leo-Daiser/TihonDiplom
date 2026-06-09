@@ -35,6 +35,22 @@
 </section>
 
 <section class="panel">
+  <div class="panel-head"><h2>Файлы</h2></div>
+  <div class="attachments-list">
+    {% for item in task.attachments %}
+    <div class="attachment-row">
+      <div><strong>{{ item.file_name }}</strong><span>{{ (item.size_bytes / 1024)|round(1) }} КБ</span></div>
+      <a class="secondary-link small-link" href="/api/v1/attachments/{{ item.id }}/open" target="_blank">Скачать</a>
+    </div>
+    {% else %}<p class="empty left">Файлов пока нет</p>{% endfor %}
+  </div>
+  <form method="post" action="/tasks/{{ task.id }}/attachments" enctype="multipart/form-data" class="upload-form">
+    <input type="file" name="file" required>
+    <button type="submit">Загрузить файл</button>
+  </form>
+</section>
+
+<section class="panel">
   <div class="panel-head"><h2>Комментарии</h2></div>
   <div class="comments">
     {% for comment in task.comments %}
