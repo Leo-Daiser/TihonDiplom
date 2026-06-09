@@ -213,6 +213,18 @@ async def task_attachment_submit(request: Request, task_id: int, file: UploadFil
     return RedirectResponse(url=f"/tasks/{task.id}", status_code=status.HTTP_303_SEE_OTHER)
 
 
+@router.get("/attachments/{attachment_id}/open")
+def web_open_attachment(request: Request, attachment_id: int, db: Session = Depends(get_db), storage: StorageService = Depends(get_storage_service)):
+    user = get_user_from_cookie(request, db)
+    if user is None:
+        return redirect_to_login()
+    attachment = db.get(Attachment, attachment_id)
+    if attachment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND)
+    get_task_for_user(db, attachment.task_id, user)
+    return RedirectResponse(url=storage.get_presigned_download_url(attachment.object_key), status_code=status.HTTP_303_SEE_OTHER)
+
+
 @router.get("/incidents", response_class=HTMLResponse)
 def incidents_page(request: Request, db: Session = Depends(get_db)):
     user = get_user_from_cookie(request, db)
