@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     minio_secret_key: str = "local-secret-key"
     minio_bucket: str = "task-attachments"
     minio_secure: bool = False
+    rocketchat_enabled: bool = False
+    rocketchat_webhook_url: str | None = None
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
