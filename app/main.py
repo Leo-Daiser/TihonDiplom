@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
+from app.api.attachments import router as attachments_router
 from app.api.audit import router as audit_router
 from app.api.auth import router as auth_router
 from app.api.dictionaries import router as dictionaries_router
@@ -26,6 +27,7 @@ app.include_router(pages_router)
 app.include_router(health_router)
 app.include_router(auth_router)
 app.include_router(tasks_router)
+app.include_router(attachments_router)
 app.include_router(users_router)
 app.include_router(dictionaries_router)
 app.include_router(audit_router)
