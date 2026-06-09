@@ -1,5 +1,6 @@
 from datetime import timedelta
 from io import BytesIO
+from urllib.parse import urlsplit, urlunsplit
 from uuid import uuid4
 
 from minio import Minio
@@ -43,7 +44,11 @@ class StorageService:
     def get_presigned_download_url(self, object_key: str) -> str:
         """Ссылка выдается временно, прямой доступ к bucket не открывается."""
         self.ensure_bucket()
-        return self.client.presigned_get_object(self.bucket, object_key, expires=timedelta(minutes=15))
+        url = self.client.presigned_get_object(self.bucket, object_key, expires=timedelta(minutes=15))
+        if settings.minio_public_endpoint:
+            parsed = urlsplit(url)
+            url = urlunsplit((parsed.scheme, settings.minio_public_endpoint, parsed.path, parsed.query, parsed.fragment))
+        return url
 
     def delete_object(self, object_key: str) -> None:
         """Удаление файла выполняется в хранилище, метаданные удаляются отдельно в БД."""
