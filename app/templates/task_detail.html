@@ -40,7 +40,7 @@
     {% for item in task.attachments %}
     <div class="attachment-row">
       <div><strong>{{ item.file_name }}</strong><span>{{ (item.size_bytes / 1024)|round(1) }} КБ</span></div>
-      <a class="secondary-link small-link" href="/api/v1/attachments/{{ item.id }}/open" target="_blank">Скачать</a>
+      <a class="secondary-link small-link" href="/attachments/{{ item.id }}/open" target="_blank">Скачать</a>
     </div>
     {% else %}<p class="empty left">Файлов пока нет</p>{% endfor %}
   </div>
