@@ -10,6 +10,7 @@ from app.models.task_status import TaskStatus
 from app.models.user import User
 from app.schemas.integration import ZabbixWebhookPayload, ZabbixWebhookResponse
 from app.services.audit_service import write_audit_log
+from app.services.notification_service import notify_task_event
 
 router = APIRouter(prefix="/api/v1/integrations", tags=["integrations"])
 settings = get_settings()
@@ -132,6 +133,15 @@ def receive_zabbix_webhook(
         entity_id=task.id,
         action="create_incident_task_from_zabbix",
         diff={"monitoring_event_id": event.id, "priority": priority.code},
+    )
+    notification = notify_task_event(db, task=task, event="Новый инцидент Zabbix")
+    write_audit_log(
+        db,
+        actor_id=None,
+        entity_type="notification",
+        entity_id=notification.id,
+        action="create_rocketchat_notification",
+        diff={"task_id": task.id, "status": notification.status},
     )
     db.commit()
 
