@@ -50,6 +50,17 @@ class StorageService:
             url = urlunsplit((parsed.scheme, settings.minio_public_endpoint, parsed.path, parsed.query, parsed.fragment))
         return url
 
+    def stream_object(self, object_key: str):
+        """Объект читается из MinIO потоком, чтобы приложение могло отдать файл само."""
+        self.ensure_bucket()
+        response = self.client.get_object(self.bucket, object_key)
+        try:
+            for chunk in response.stream(32 * 1024):
+                yield chunk
+        finally:
+            response.close()
+            response.release_conn()
+
     def delete_object(self, object_key: str) -> None:
         """Удаление файла выполняется в хранилище, метаданные удаляются отдельно в БД."""
         try:
