@@ -21,6 +21,8 @@
         <a href="/tasks">Задачи</a>
         <a href="/incidents">Инциденты</a>
         {% if user and user.role.code in ['admin', 'manager'] %}
+        <a href="/notifications">Уведомления</a>
+        <a href="/integrations/rocketchat">Rocket.Chat</a>
         <a href="/audit">Аудит</a>
         {% endif %}
         <a href="/docs">API</a>
