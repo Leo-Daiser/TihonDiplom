@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block title %}Rocket.Chat — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div><p class="eyebrow">Интеграции</p><h1>Rocket.Chat</h1></div>
+  <a class="secondary-link" href="/notifications">Журнал уведомлений</a>
+</section>
+<section class="panel form-panel">
+  <div class="panel-head"><h2>Проверочная отправка</h2></div>
+  {% if result %}<div class="alert neutral">Статус: {{ result.status }}. Запись уведомления #{{ result.id }}.</div>{% endif %}
+  <form method="post" action="/integrations/rocketchat/test" class="form-stack">
+    <label><span>Текст сообщения</span><textarea name="text" rows="4" required>Тестовое уведомление из IT Workflow</textarea></label>
+    <button type="submit">Отправить тест</button>
+  </form>
+</section>
+<section class="panel compact-panel">
+  <p class="description">Если интеграция отключена или webhook URL не задан, система не падает: результат фиксируется в журнале уведомлений со статусом skipped или failed.</p>
+</section>
+{% endblock %}
