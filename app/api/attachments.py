@@ -1,5 +1,7 @@
+from urllib.parse import quote
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
-from fastapi.responses import RedirectResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_user
@@ -78,7 +80,7 @@ def get_attachment_download_url(
     current_user: User = Depends(get_current_user),
     storage: StorageService = Depends(get_storage_service),
 ) -> AttachmentDownloadResponse:
-    """API возвращает временную ссылку на скачивание файла."""
+    """API возвращает временную ссылку на скачивание файла, если нужен прямой доступ к MinIO."""
     attachment = db.get(Attachment, attachment_id)
     if attachment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Вложение не найдено")
@@ -94,10 +96,20 @@ def open_attachment(
     current_user: User = Depends(get_current_user),
     storage: StorageService = Depends(get_storage_service),
 ):
-    """Web-интерфейс перенаправляет пользователя на временную ссылку MinIO."""
+    """Файл отдается через приложение: браузеру не нужно иметь прямой доступ к MinIO."""
     attachment = db.get(Attachment, attachment_id)
     if attachment is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Вложение не найдено")
     task = db.get(Task, attachment.task_id)
     ensure_task_access(task, current_user)
-    return RedirectResponse(url=storage.get_presigned_download_url(attachment.object_key), status_code=status.HTTP_303_SEE_OTHER)
+
+    filename = quote(attachment.file_name)
+    headers = {
+        "Content-Disposition": f"attachment; filename*=UTF-8''{filename}",
+        "Content-Length": str(attachment.size_bytes),
+    }
+    return StreamingResponse(
+        storage.stream_object(attachment.object_key),
+        media_type=attachment.content_type or "application/octet-stream",
+        headers=headers,
+    )
