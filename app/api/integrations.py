@@ -1,3 +1,6 @@
+import hashlib
+import json
+
 from fastapi import APIRouter, Depends, Header, HTTPException, status
 from sqlalchemy.orm import Session
 
@@ -39,8 +42,7 @@ def check_integration_token(authorization: str | None) -> None:
 def get_priority_for_severity(db: Session, severity: str | None) -> TaskPriority:
     severity_key = (severity or "low").lower()
     priority_code = SEVERITY_TO_PRIORITY.get(severity_key, "low")
-    priority = db.query(TaskPriority).filter(TaskPriority.code == priority_code).one()
-    return priority
+    return db.query(TaskPriority).filter(TaskPriority.code == priority_code).one()
 
 
 def get_default_status(db: Session) -> TaskStatus:
@@ -56,6 +58,35 @@ def get_default_assignee(db: Session) -> User | None:
     return db.query(User).filter(User.email == "worker@example.com", User.is_active.is_(True)).first()
 
 
+def normalized_event_id(payload: ZabbixWebhookPayload) -> str:
+    """Возвращает внешний ID события или стабильный хэш по основным полям, если ID не передан."""
+    if payload.event_id:
+        return str(payload.event_id)
+    raw = payload.model_dump(mode="json")
+    basis = {
+        "host": payload.host,
+        "trigger": payload.trigger,
+        "severity": payload.severity,
+        "subject": payload.subject,
+        "message": payload.message,
+        "timestamp": str(payload.timestamp) if payload.timestamp else raw,
+    }
+    encoded = json.dumps(basis, ensure_ascii=False, sort_keys=True, default=str)
+    return "generated-" + hashlib.sha256(encoded.encode("utf-8")).hexdigest()[:32]
+
+
+def build_incident_description(payload: ZabbixWebhookPayload) -> str:
+    """Описание задачи собирается из нормализованных полей и исходного сообщения Zabbix."""
+    parts = [f"Событие Zabbix: {payload.trigger or payload.subject or 'без описания'}"]
+    if payload.host:
+        parts.append(f"Узел: {payload.host}")
+    if payload.severity:
+        parts.append(f"Важность: {payload.severity}")
+    if payload.message:
+        parts.append(f"Сообщение: {payload.message}")
+    return "\n".join(parts)
+
+
 @router.post("/zabbix/webhook", response_model=ZabbixWebhookResponse)
 def receive_zabbix_webhook(
     payload: ZabbixWebhookPayload,
@@ -64,10 +95,11 @@ def receive_zabbix_webhook(
 ) -> ZabbixWebhookResponse:
     """Событие Zabbix сохраняется и при первом получении превращается в задачу-инцидент."""
     check_integration_token(authorization)
+    external_event_id = normalized_event_id(payload)
 
     existing_event = (
         db.query(MonitoringEvent)
-        .filter(MonitoringEvent.source_system == "zabbix", MonitoringEvent.external_event_id == payload.event_id)
+        .filter(MonitoringEvent.source_system == "zabbix", MonitoringEvent.external_event_id == external_event_id)
         .first()
     )
     if existing_event is not None:
@@ -77,7 +109,7 @@ def receive_zabbix_webhook(
             entity_type="monitoring_event",
             entity_id=existing_event.id,
             action="duplicate_zabbix_event",
-            diff={"external_event_id": payload.event_id},
+            diff={"external_event_id": external_event_id},
         )
         db.commit()
         return ZabbixWebhookResponse(status="duplicate", event_id=existing_event.id, task_id=existing_event.task_id, duplicate=True)
@@ -90,12 +122,12 @@ def receive_zabbix_webhook(
     title_parts = ["Инцидент мониторинга"]
     if payload.host:
         title_parts.append(payload.host)
-    if payload.trigger:
-        title_parts.append(payload.trigger)
+    if payload.trigger or payload.subject:
+        title_parts.append(payload.trigger or payload.subject)
 
     task = Task(
         title=" — ".join(title_parts),
-        description=f"Событие Zabbix: {payload.trigger or 'без описания'}",
+        description=build_incident_description(payload),
         creator_id=system_user.id,
         assignee_id=default_assignee.id if default_assignee else None,
         status_id=default_status.id,
@@ -108,9 +140,9 @@ def receive_zabbix_webhook(
     event = MonitoringEvent(
         task_id=task.id,
         source_system="zabbix",
-        external_event_id=payload.event_id,
+        external_event_id=external_event_id,
         host=payload.host,
-        trigger_name=payload.trigger,
+        trigger_name=payload.trigger or payload.subject,
         severity=payload.severity,
         payload=payload.model_dump(mode="json"),
         status="received",
@@ -118,31 +150,10 @@ def receive_zabbix_webhook(
     db.add(event)
     db.flush()
 
-    write_audit_log(
-        db,
-        actor_id=None,
-        entity_type="monitoring_event",
-        entity_id=event.id,
-        action="receive_zabbix_event",
-        diff={"external_event_id": payload.event_id, "severity": payload.severity},
-    )
-    write_audit_log(
-        db,
-        actor_id=None,
-        entity_type="task",
-        entity_id=task.id,
-        action="create_incident_task_from_zabbix",
-        diff={"monitoring_event_id": event.id, "priority": priority.code},
-    )
+    write_audit_log(db, actor_id=None, entity_type="monitoring_event", entity_id=event.id, action="receive_zabbix_event", diff={"external_event_id": external_event_id, "severity": payload.severity})
+    write_audit_log(db, actor_id=None, entity_type="task", entity_id=task.id, action="create_incident_task_from_zabbix", diff={"monitoring_event_id": event.id, "priority": priority.code})
     notification = notify_task_event(db, task=task, event="Новый инцидент Zabbix")
-    write_audit_log(
-        db,
-        actor_id=None,
-        entity_type="notification",
-        entity_id=notification.id,
-        action="create_rocketchat_notification",
-        diff={"task_id": task.id, "status": notification.status},
-    )
+    write_audit_log(db, actor_id=None, entity_type="notification", entity_id=notification.id, action="create_rocketchat_notification", diff={"task_id": task.id, "status": notification.status})
     db.commit()
 
     return ZabbixWebhookResponse(status="created", event_id=event.id, task_id=task.id, duplicate=False)
