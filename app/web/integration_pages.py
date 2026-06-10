@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
@@ -7,7 +7,6 @@ from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.notification import Notification
 from app.models.user import User
-from app.services.notification_service import send_rocketchat_payload
 
 router = APIRouter(tags=["web-integrations"])
 templates = Jinja2Templates(directory="app/templates")
@@ -47,21 +46,3 @@ def notifications_page(request: Request, db: Session = Depends(get_db)):
         return user
     notifications = db.query(Notification).order_by(Notification.created_at.desc()).limit(100).all()
     return templates.TemplateResponse("notifications.html", {"request": request, "user": user, "notifications": notifications})
-
-
-@router.get("/integrations/rocketchat", response_class=HTMLResponse)
-def rocketchat_page(request: Request, db: Session = Depends(get_db)):
-    user = require_manager_or_admin(request, db)
-    if isinstance(user, RedirectResponse):
-        return user
-    return templates.TemplateResponse("rocketchat.html", {"request": request, "user": user, "result": None})
-
-
-@router.post("/integrations/rocketchat/test", response_class=HTMLResponse)
-def rocketchat_test_submit(request: Request, text: str = Form(...), db: Session = Depends(get_db)):
-    user = require_manager_or_admin(request, db)
-    if isinstance(user, RedirectResponse):
-        return user
-    notification = send_rocketchat_payload(db, text=text)
-    db.commit()
-    return templates.TemplateResponse("rocketchat.html", {"request": request, "user": user, "result": notification})
