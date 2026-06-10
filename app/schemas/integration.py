@@ -1,4 +1,3 @@
-from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -15,7 +14,7 @@ class ZabbixWebhookPayload(BaseModel):
     severity: str | None = None
     subject: str | None = None
     message: str | None = None
-    timestamp: datetime | None = None
+    timestamp: str | None = None
 
     @model_validator(mode="before")
     @classmethod
@@ -27,7 +26,7 @@ class ZabbixWebhookPayload(BaseModel):
             for key in keys:
                 value = data.get(key)
                 if value not in (None, ""):
-                    return value
+                    return str(value)
             return None
 
         normalized = dict(data)
