@@ -10,6 +10,14 @@ from app.models.task import Task
 settings = get_settings()
 
 
+PRIORITY_COLORS = {
+    "critical": "#d73a49",
+    "high": "#e36209",
+    "medium": "#dbab09",
+    "low": "#2f81f7",
+}
+
+
 def create_notification(
     db: Session,
     *,
@@ -34,9 +42,8 @@ def create_notification(
     return notification
 
 
-def send_rocketchat_payload(db: Session, *, text: str, task_id: int | None = None) -> Notification:
-    """Отправляет сообщение в Rocket.Chat Incoming Webhook и фиксирует результат в БД."""
-    payload = {"text": text}
+def send_rocketchat_payload(db: Session, *, payload: dict, task_id: int | None = None) -> Notification:
+    """Отправляет готовый Rocket.Chat payload в Incoming Webhook и фиксирует результат в БД."""
     recipient = settings.rocketchat_webhook_url or "rocketchat-webhook"
 
     if not settings.rocketchat_enabled:
@@ -47,7 +54,7 @@ def send_rocketchat_payload(db: Session, *, text: str, task_id: int | None = Non
             recipient=recipient,
             status="skipped",
             payload=payload,
-            response="Rocket.Chat integration is disabled",
+            response="RocketChat integration is disabled",
         )
 
     if not settings.rocketchat_webhook_url:
@@ -84,18 +91,35 @@ def send_rocketchat_payload(db: Session, *, text: str, task_id: int | None = Non
     return notification
 
 
-def build_task_notification_text(task: Task, *, event: str) -> str:
-    """Формирует короткое сообщение о задаче для внешнего канала."""
-    parts = [f"{event}: задача #{task.id}", f"Название: {task.title}"]
-    if task.priority:
-        parts.append(f"Приоритет: {task.priority.name}")
-    if task.status:
-        parts.append(f"Статус: {task.status.name}")
-    if task.assignee:
-        parts.append(f"Исполнитель: {task.assignee.full_name}")
-    return "\n".join(parts)
+def build_task_rocketchat_payload(task: Task, *, event: str) -> dict:
+    """Формирует структурированное сообщение Rocket.Chat: text + attachment fields."""
+    priority_code = task.priority.code if task.priority else "low"
+    priority_name = task.priority.name if task.priority else "Не указан"
+    status_name = task.status.name if task.status else "Не указан"
+    assignee = task.assignee.full_name if task.assignee else "Не назначен"
+
+    return {
+        "alias": "IT Workflow",
+        "emoji": ":warning:",
+        "text": f"{event}: задача #{task.id}",
+        "attachments": [
+            {
+                "color": PRIORITY_COLORS.get(priority_code, "#2f81f7"),
+                "title": task.title,
+                "text": task.description or "Описание не указано",
+                "fields": [
+                    {"title": "ID задачи", "value": str(task.id), "short": True},
+                    {"title": "Приоритет", "value": priority_name, "short": True},
+                    {"title": "Статус", "value": status_name, "short": True},
+                    {"title": "Исполнитель", "value": assignee, "short": True},
+                    {"title": "Источник", "value": task.source_type, "short": True},
+                ],
+            }
+        ],
+    }
 
 
 def notify_task_event(db: Session, *, task: Task, event: str) -> Notification:
     """Отправляет уведомление о событии задачи в Rocket.Chat."""
-    return send_rocketchat_payload(db, text=build_task_notification_text(task, event=event), task_id=task.id)
+    payload = build_task_rocketchat_payload(task, event=event)
+    return send_rocketchat_payload(db, payload=payload, task_id=task.id)
