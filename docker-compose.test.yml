@@ -1,3 +1,5 @@
+name: tihon_diplom_test
+
 services:
   test-db:
     image: postgres:16
