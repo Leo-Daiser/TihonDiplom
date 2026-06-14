@@ -5,7 +5,6 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session, joinedload
 
 from app.api.deps import get_current_user
-from app.api.tasks import ensure_task_access
 from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.attachment import Attachment
@@ -14,6 +13,7 @@ from app.models.user import User
 from app.schemas.attachment import AttachmentDownloadResponse, AttachmentResponse
 from app.services.audit_service import write_audit_log
 from app.services.storage_service import StorageService, get_storage_service
+from app.services.task_service import ensure_task_access
 
 router = APIRouter(prefix="/api/v1", tags=["attachments"])
 
@@ -47,8 +47,6 @@ def list_task_attachments(
 ) -> list[Attachment]:
     """Список вложений доступен только пользователям, имеющим доступ к задаче."""
     task = db.get(Task, task_id)
-    if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")
     ensure_task_access(task, current_user)
     return db.query(Attachment).filter(Attachment.task_id == task_id).order_by(Attachment.created_at.desc()).all()
 
@@ -63,8 +61,6 @@ async def upload_task_attachment(
 ) -> Attachment:
     """Файл загружается в MinIO, а в базе сохраняются только сведения о нем."""
     task = db.get(Task, task_id)
-    if task is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Задача не найдена")
     ensure_task_access(task, current_user)
 
     data = await file.read()
