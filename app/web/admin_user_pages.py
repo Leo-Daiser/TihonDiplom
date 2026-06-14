@@ -41,7 +41,7 @@ def admin_users_page(request: Request, db: Session = Depends(get_db)):
     if isinstance(current_user, RedirectResponse):
         return current_user
     users = users_query(db).order_by(User.is_active.desc(), User.id.asc()).all()
-    return templates.TemplateResponse("admin_users.html", {"request": request, "user": current_user, "users": users})
+    return templates.TemplateResponse(request, "admin_users.html", {"request": request, "user": current_user, "users": users})
 
 
 @router.get("/admin/users/new", response_class=HTMLResponse)
@@ -49,7 +49,8 @@ def new_admin_user_page(request: Request, db: Session = Depends(get_db)):
     current_user = require_web_admin(request, db)
     if isinstance(current_user, RedirectResponse):
         return current_user
-    return templates.TemplateResponse("admin_user_form.html", page_context(request, current_user, db, edited_user=None, page_title="Новый пользователь", form_action="/admin/users/new", submit_label="Создать пользователя"))
+    context = page_context(request, current_user, db, edited_user=None, page_title="Новый пользователь", form_action="/admin/users/new", submit_label="Создать пользователя")
+    return templates.TemplateResponse(request, "admin_user_form.html", context)
 
 
 @router.post("/admin/users/new")
@@ -76,7 +77,8 @@ def edit_admin_user_page(request: Request, user_id: int, db: Session = Depends(g
     edited_user = users_query(db).filter(User.id == user_id).first()
     if edited_user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Пользователь не найден")
-    return templates.TemplateResponse("admin_user_form.html", page_context(request, current_user, db, edited_user=edited_user, page_title=f"Редактирование пользователя #{edited_user.id}", form_action=f"/admin/users/{edited_user.id}/edit", submit_label="Сохранить изменения"))
+    context = page_context(request, current_user, db, edited_user=edited_user, page_title=f"Редактирование пользователя #{edited_user.id}", form_action=f"/admin/users/{edited_user.id}/edit", submit_label="Сохранить изменения")
+    return templates.TemplateResponse(request, "admin_user_form.html", context)
 
 
 @router.post("/admin/users/{user_id}/edit")
