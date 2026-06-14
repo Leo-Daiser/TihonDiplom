@@ -3,14 +3,17 @@
 {% block content %}
 <section class="page-head">
   <div><p class="eyebrow">Задача #{{ task.id }}</p><h1>{{ task.title }}</h1></div>
-  <a class="secondary-link" href="/tasks">К списку</a>
+  <div class="page-actions">
+    {% if can_manage %}<a class="primary-link" href="/tasks/{{ task.id }}/edit">Редактировать</a>{% endif %}
+    <a class="secondary-link" href="/tasks">К списку</a>
+  </div>
 </section>
 
 <section class="detail-grid">
   <article class="panel task-main">
     <div class="meta-row">
       <span class="badge">{{ task.status.name }}</span>
-      <span class="badge muted">{{ task.priority.name }}</span>
+      <span class="badge muted priority-{{ task.priority.code }}">{{ task.priority.name }}</span>
       <span class="source-label">{{ task.source_type }}</span>
     </div>
     <h2>Описание</h2>
@@ -18,6 +21,7 @@
     <div class="info-grid">
       <div><span>Автор</span><strong>{{ task.creator.full_name }}</strong></div>
       <div><span>Исполнитель</span><strong>{{ task.assignee.full_name if task.assignee else 'Не назначен' }}</strong></div>
+      <div><span>Срок выполнения</span><strong>{{ task.deadline.strftime('%d.%m.%Y %H:%M') if task.deadline else 'Не указан' }}</strong></div>
       <div><span>Создана</span><strong>{{ task.created_at.strftime('%d.%m.%Y %H:%M') }}</strong></div>
       <div><span>Обновлена</span><strong>{{ task.updated_at.strftime('%d.%m.%Y %H:%M') }}</strong></div>
     </div>
