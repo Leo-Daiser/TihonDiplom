@@ -24,6 +24,9 @@
         <a href="/notifications">Уведомления</a>
         <a href="/audit">Аудит</a>
         {% endif %}
+        {% if user and user.role.code == 'admin' %}
+        <a href="/admin/users">Пользователи</a>
+        {% endif %}
         <a href="/docs">API</a>
       </nav>
       <div class="sidebar-footer">
