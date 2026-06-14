@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_
@@ -8,11 +8,14 @@ from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.core.security import decode_access_token
 from app.db.session import get_db
+from app.models.attachment import Attachment
 from app.models.task import Task
+from app.models.task_comment import TaskComment
 from app.models.task_priority import TaskPriority
 from app.models.task_status import TaskStatus
 from app.models.user import User
 from app.services.audit_service import write_audit_log
+from app.services.storage_service import StorageService, get_storage_service
 
 router = APIRouter(tags=["web-tasks"])
 templates = Jinja2Templates(directory="app/templates")
@@ -96,19 +99,10 @@ def form_context(request: Request, user: User, db: Session, **extra):
 
 
 @router.get("/tasks", response_class=HTMLResponse)
-def tasks_page(
-    request: Request,
-    q: str | None = None,
-    status_code: str | None = None,
-    priority_code: str | None = None,
-    assignee_id: str | None = None,
-    source_type: str | None = None,
-    db: Session = Depends(get_db),
-):
+def tasks_page(request: Request, q: str | None = None, status_code: str | None = None, priority_code: str | None = None, assignee_id: str | None = None, source_type: str | None = None, db: Session = Depends(get_db)):
     user = get_user_from_cookie(request, db)
     if user is None:
         return redirect_to_login()
-
     assignee_filter = parse_optional_int(assignee_id)
     query = apply_task_scope(task_query(db), user)
     if q:
@@ -122,17 +116,9 @@ def tasks_page(
         query = query.filter(Task.assignee_id == assignee_filter)
     if source_type:
         query = query.filter(Task.source_type == source_type)
-
     return templates.TemplateResponse(
         "tasks.html",
-        form_context(
-            request,
-            user,
-            db,
-            tasks=query.order_by(Task.created_at.desc()).all(),
-            filters={"q": q, "status_code": status_code, "priority_code": priority_code, "assignee_id": assignee_filter, "source_type": source_type},
-            can_manage=user_can_manage_tasks(user),
-        ),
+        form_context(request, user, db, tasks=query.order_by(Task.created_at.desc()).all(), filters={"q": q, "status_code": status_code, "priority_code": priority_code, "assignee_id": assignee_filter, "source_type": source_type}, can_manage=user_can_manage_tasks(user)),
     )
 
 
@@ -142,10 +128,7 @@ def new_task_page(request: Request, db: Session = Depends(get_db)):
     if user is None:
         return redirect_to_login()
     require_task_manager(user)
-    return templates.TemplateResponse(
-        "task_form.html",
-        form_context(request, user, db, task=None, page_title="Новая задача", form_action="/tasks/new", submit_label="Создать задачу"),
-    )
+    return templates.TemplateResponse("task_form.html", form_context(request, user, db, task=None, page_title="Новая задача", form_action="/tasks/new", submit_label="Создать задачу"))
 
 
 @router.post("/tasks/new")
@@ -181,10 +164,7 @@ def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)
         return redirect_to_login()
     require_task_manager(user)
     task = get_task_for_user(db, task_id, user)
-    return templates.TemplateResponse(
-        "task_form.html",
-        form_context(request, user, db, task=task, page_title=f"Редактирование задачи #{task.id}", form_action=f"/tasks/{task.id}/edit", submit_label="Сохранить изменения"),
-    )
+    return templates.TemplateResponse("task_form.html", form_context(request, user, db, task=task, page_title=f"Редактирование задачи #{task.id}", form_action=f"/tasks/{task.id}/edit", submit_label="Сохранить изменения"))
 
 
 @router.post("/tasks/{task_id}/edit")
@@ -199,7 +179,6 @@ def edit_task_submit(request: Request, task_id: int, title: str = Form(...), des
     new_assignee_id = parse_optional_int(assignee_id)
     new_deadline = parse_deadline(deadline)
     changes = {}
-
     if title != task.title:
         changes["title"] = {"old": task.title, "new": title}
         task.title = title
@@ -218,8 +197,53 @@ def edit_task_submit(request: Request, task_id: int, title: str = Form(...), des
     if new_deadline != task.deadline:
         changes["deadline"] = {"old": str(task.deadline), "new": str(new_deadline)}
         task.deadline = new_deadline
-
     if changes:
         write_audit_log(db, actor_id=user.id, entity_type="task", entity_id=task.id, action="update_task", diff=changes)
     db.commit()
+    return RedirectResponse(url=f"/tasks/{task.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/tasks/{task_id}/status")
+def task_status_submit(request: Request, task_id: int, status_code: str = Form(...), db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if user is None:
+        return redirect_to_login()
+    task = get_task_for_user(db, task_id, user)
+    status_obj = db.query(TaskStatus).filter(TaskStatus.code == status_code).one()
+    if status_obj.id != task.status_id:
+        old_status = task.status.code
+        task.status_id = status_obj.id
+        write_audit_log(db, actor_id=user.id, entity_type="task", entity_id=task.id, action="update_task_status", diff={"status": {"old": old_status, "new": status_obj.code}})
+        db.commit()
+    return RedirectResponse(url=f"/tasks/{task.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/tasks/{task_id}/comments")
+def task_comment_submit(request: Request, task_id: int, text: str = Form(...), db: Session = Depends(get_db)):
+    user = get_user_from_cookie(request, db)
+    if user is None:
+        return redirect_to_login()
+    task = get_task_for_user(db, task_id, user)
+    comment = TaskComment(task_id=task.id, author_id=user.id, text=text)
+    db.add(comment)
+    db.flush()
+    write_audit_log(db, actor_id=user.id, entity_type="task_comment", entity_id=comment.id, action="create_task_comment", diff={"task_id": task.id})
+    db.commit()
+    return RedirectResponse(url=f"/tasks/{task.id}", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.post("/tasks/{task_id}/attachments")
+async def task_attachment_submit(request: Request, task_id: int, file: UploadFile = File(...), db: Session = Depends(get_db), storage: StorageService = Depends(get_storage_service)):
+    user = get_user_from_cookie(request, db)
+    if user is None:
+        return redirect_to_login()
+    task = get_task_for_user(db, task_id, user)
+    data = await file.read()
+    if data:
+        object_key = storage.upload_bytes(filename=file.filename or "file", data=data, content_type=file.content_type)
+        attachment = Attachment(task_id=task.id, uploaded_by_id=user.id, file_name=file.filename or "file", object_key=object_key, content_type=file.content_type, size_bytes=len(data))
+        db.add(attachment)
+        db.flush()
+        write_audit_log(db, actor_id=user.id, entity_type="attachment", entity_id=attachment.id, action="upload_attachment", diff={"task_id": task.id, "file_name": attachment.file_name})
+        db.commit()
     return RedirectResponse(url=f"/tasks/{task.id}", status_code=status.HTTP_303_SEE_OTHER)
