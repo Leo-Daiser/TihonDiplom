@@ -11,6 +11,7 @@ from app.api.notifications import router as notifications_router
 from app.api.tasks import router as tasks_router
 from app.api.users import router as users_router
 from app.core.config import get_settings
+from app.web.admin_user_pages import router as admin_user_pages_router
 from app.web.integration_pages import router as integration_pages_router
 from app.web.pages import router as pages_router
 from app.web.task_pages import router as task_pages_router
@@ -27,6 +28,7 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 # Более специализированные web-роуты подключаются раньше общего pages_router.
 app.include_router(task_pages_router)
+app.include_router(admin_user_pages_router)
 app.include_router(pages_router)
 app.include_router(integration_pages_router)
 app.include_router(health_router)
