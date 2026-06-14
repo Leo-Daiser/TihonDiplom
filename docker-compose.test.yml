@@ -1,0 +1,37 @@
+services:
+  test-db:
+    image: postgres:16
+    container_name: tihon_diplom_test_db
+    environment:
+      POSTGRES_DB: tihon_diplom_test
+      POSTGRES_USER: tihon_test
+      POSTGRES_PASSWORD: tihon_test
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tihon_test -d tihon_diplom_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  tests:
+    build: .
+    container_name: tihon_diplom_tests
+    depends_on:
+      test-db:
+        condition: service_healthy
+    environment:
+      APP_ENV: test
+      APP_DEBUG: "false"
+      DATABASE_URL: postgresql+psycopg2://tihon_test:tihon_test@test-db:5432/tihon_diplom_test
+      SECRET_KEY: test-secret-key
+      ACCESS_TOKEN_EXPIRE_MINUTES: "1440"
+      ZABBIX_WEBHOOK_TOKEN: test-zabbix-token
+      MINIO_ENDPOINT: minio:9000
+      MINIO_ACCESS_KEY: local-access-key
+      MINIO_SECRET_KEY: local-secret-key
+      MINIO_BUCKET: task-attachments-test
+      MINIO_SECURE: "false"
+      ROCKETCHAT_ENABLED: "false"
+      ROCKETCHAT_WEBHOOK_URL: ""
+    command: pytest
