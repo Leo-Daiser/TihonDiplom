@@ -1,30 +1,32 @@
 {% extends "base.html" %}
-{% block title %}Новая задача — IT Workflow{% endblock %}
+{% block title %}{{ page_title }} — IT Workflow{% endblock %}
 {% block content %}
+{% set selected_status = task.status.code if task else 'new' %}
+{% set selected_priority = task.priority.code if task else 'medium' %}
 <section class="page-head">
   <div>
-    <p class="eyebrow">Создание</p>
-    <h1>Новая задача</h1>
+    <p class="eyebrow">Задачи</p>
+    <h1>{{ page_title }}</h1>
   </div>
-  <a class="secondary-link" href="/tasks">К списку</a>
+  <a class="secondary-link" href="{{ '/tasks/' ~ task.id if task else '/tasks' }}">Назад</a>
 </section>
 
 <section class="panel form-panel">
-  <form method="post" action="/tasks/new" class="form-grid">
+  <form method="post" action="{{ form_action }}" class="form-grid">
     <label class="wide">
       <span>Название</span>
-      <input type="text" name="title" required placeholder="Например: проверить резервное копирование">
+      <input type="text" name="title" required placeholder="Например: проверить резервное копирование" value="{{ task.title if task else '' }}">
     </label>
     <label class="wide">
       <span>Описание</span>
-      <textarea name="description" rows="5" placeholder="Краткое описание задачи"></textarea>
+      <textarea name="description" rows="5" placeholder="Краткое описание задачи">{{ task.description if task and task.description else '' }}</textarea>
     </label>
     <label>
       <span>Исполнитель</span>
       <select name="assignee_id">
         <option value="">Не назначен</option>
         {% for item in users %}
-        <option value="{{ item.id }}">{{ item.full_name }}</option>
+        <option value="{{ item.id }}" {% if task and task.assignee_id == item.id %}selected{% endif %}>{{ item.full_name }}</option>
         {% endfor %}
       </select>
     </label>
@@ -32,7 +34,7 @@
       <span>Статус</span>
       <select name="status_code">
         {% for status in statuses %}
-        <option value="{{ status.code }}" {% if status.code == 'new' %}selected{% endif %}>{{ status.name }}</option>
+        <option value="{{ status.code }}" {% if selected_status == status.code %}selected{% endif %}>{{ status.name }}</option>
         {% endfor %}
       </select>
     </label>
@@ -40,12 +42,16 @@
       <span>Приоритет</span>
       <select name="priority_code">
         {% for priority in priorities %}
-        <option value="{{ priority.code }}" {% if priority.code == 'medium' %}selected{% endif %}>{{ priority.name }}</option>
+        <option value="{{ priority.code }}" {% if selected_priority == priority.code %}selected{% endif %}>{{ priority.name }}</option>
         {% endfor %}
       </select>
     </label>
+    <label>
+      <span>Срок выполнения</span>
+      <input type="datetime-local" name="deadline" value="{{ task.deadline.strftime('%Y-%m-%dT%H:%M') if task and task.deadline else '' }}">
+    </label>
     <div class="form-actions wide">
-      <button type="submit">Создать задачу</button>
+      <button type="submit">{{ submit_label }}</button>
     </div>
   </form>
 </section>
