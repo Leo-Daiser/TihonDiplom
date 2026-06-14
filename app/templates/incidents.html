@@ -6,6 +6,9 @@
     <p class="eyebrow">Мониторинг</p>
     <h1>Инциденты</h1>
   </div>
+  {% if user and user.role.code in ['admin', 'manager'] %}
+  <a class="secondary-link" href="/reports/incidents.csv">Экспорт CSV</a>
+  {% endif %}
 </section>
 
 <section class="panel">
