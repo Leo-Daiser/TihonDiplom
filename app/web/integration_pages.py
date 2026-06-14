@@ -17,4 +17,4 @@ def notifications_page(request: Request, db: Session = Depends(get_db)):
     if isinstance(user, RedirectResponse):
         return user
     notifications = db.query(Notification).order_by(Notification.created_at.desc()).limit(100).all()
-    return templates.TemplateResponse("notifications.html", {"request": request, "user": user, "notifications": notifications})
+    return templates.TemplateResponse(request, "notifications.html", {"request": request, "user": user, "notifications": notifications})
