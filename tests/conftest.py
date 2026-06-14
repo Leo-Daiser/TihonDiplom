@@ -5,9 +5,17 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import OperationalError
 
+DEFAULT_TEST_DATABASE_URL = "postgresql+psycopg2://tihon_test:tihon_test@localhost:55432/tihon_diplom_test"
+
+if os.environ.get("TEST_DATABASE_URL"):
+    os.environ["DATABASE_URL"] = os.environ["TEST_DATABASE_URL"]
+elif os.environ.get("APP_ENV") != "test":
+    os.environ["DATABASE_URL"] = DEFAULT_TEST_DATABASE_URL
+else:
+    os.environ.setdefault("DATABASE_URL", DEFAULT_TEST_DATABASE_URL)
+
 os.environ.setdefault("APP_ENV", "test")
 os.environ.setdefault("APP_DEBUG", "false")
-os.environ.setdefault("DATABASE_URL", "postgresql+psycopg2://tihon_test:tihon_test@localhost:55432/tihon_diplom_test")
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 os.environ.setdefault("ACCESS_TOKEN_EXPIRE_MINUTES", "1440")
 os.environ.setdefault("ZABBIX_WEBHOOK_TOKEN", "test-zabbix-token")
