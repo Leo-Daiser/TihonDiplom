@@ -1,5 +1,9 @@
+import csv
+import io
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session, joinedload
 
@@ -37,6 +41,30 @@ def apply_task_scope(query, user: User):
     if user.role.code == "worker":
         return query.filter((Task.assignee_id == user.id) | (Task.creator_id == user.id))
     return query
+
+
+def require_report_access(request: Request, db: Session) -> User | RedirectResponse:
+    user = get_user_from_cookie(request, db)
+    if user is None:
+        return redirect_to_login()
+    if user.role.code not in {"admin", "manager"}:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN)
+    return user
+
+
+def format_datetime(value: datetime | None) -> str:
+    if value is None:
+        return ""
+    return value.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def build_csv_response(filename: str, rows: list[list[str]]) -> Response:
+    buffer = io.StringIO()
+    writer = csv.writer(buffer, delimiter=";")
+    writer.writerows(rows)
+    content = "\ufeff" + buffer.getvalue()
+    headers = {"Content-Disposition": f'attachment; filename="{filename}"'}
+    return Response(content=content, media_type="text/csv; charset=utf-8", headers=headers)
 
 
 @router.get("/login", response_class=HTMLResponse)
@@ -88,6 +116,55 @@ def incidents_page(request: Request, db: Session = Depends(get_db)):
     query = db.query(MonitoringEvent).options(joinedload(MonitoringEvent.task)).order_by(MonitoringEvent.received_at.desc())
     events = query.limit(100).all()
     return templates.TemplateResponse("incidents.html", {"request": request, "user": user, "events": events})
+
+
+@router.get("/reports/tasks.csv")
+def export_tasks_csv(request: Request, db: Session = Depends(get_db)):
+    user = require_report_access(request, db)
+    if isinstance(user, RedirectResponse):
+        return user
+    tasks = (
+        db.query(Task)
+        .options(joinedload(Task.creator), joinedload(Task.assignee), joinedload(Task.status), joinedload(Task.priority))
+        .order_by(Task.created_at.desc())
+        .all()
+    )
+    rows = [["id", "title", "status", "priority", "source", "creator", "assignee", "deadline", "created_at", "updated_at"]]
+    for task in tasks:
+        rows.append([
+            str(task.id),
+            task.title,
+            task.status.name if task.status else "",
+            task.priority.name if task.priority else "",
+            task.source_type,
+            task.creator.full_name if task.creator else "",
+            task.assignee.full_name if task.assignee else "",
+            format_datetime(task.deadline),
+            format_datetime(task.created_at),
+            format_datetime(task.updated_at),
+        ])
+    return build_csv_response("tasks_report.csv", rows)
+
+
+@router.get("/reports/incidents.csv")
+def export_incidents_csv(request: Request, db: Session = Depends(get_db)):
+    user = require_report_access(request, db)
+    if isinstance(user, RedirectResponse):
+        return user
+    events = db.query(MonitoringEvent).options(joinedload(MonitoringEvent.task)).order_by(MonitoringEvent.received_at.desc()).all()
+    rows = [["id", "external_event_id", "host", "trigger", "severity", "status", "task_id", "received_at"]]
+    for event in events:
+        rows.append([
+            str(event.id),
+            event.external_event_id,
+            event.host or "",
+            event.trigger_name or "",
+            event.severity or "",
+            event.status,
+            str(event.task_id or ""),
+            format_datetime(event.received_at),
+        ])
+    return build_csv_response("incidents_report.csv", rows)
 
 
 @router.get("/audit", response_class=HTMLResponse)
