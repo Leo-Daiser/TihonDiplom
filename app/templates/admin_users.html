@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}Пользователи — IT Workflow{% endblock %}
+{% block content %}
+<section class="page-head">
+  <div>
+    <p class="eyebrow">Администрирование</p>
+    <h1>Пользователи</h1>
+  </div>
+  <a class="primary-link" href="/admin/users/new">Новый пользователь</a>
+</section>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>ФИО</th>
+          <th>Email</th>
+          <th>Роль</th>
+          <th>Статус</th>
+          <th>Действие</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for item in users %}
+        <tr>
+          <td>#{{ item.id }}</td>
+          <td>{{ item.full_name }}</td>
+          <td>{{ item.email }}</td>
+          <td><span class="badge muted">{{ item.role.name }}</span></td>
+          <td>
+            {% if item.is_active %}
+            <span class="badge">Активен</span>
+            {% else %}
+            <span class="badge muted">Отключен</span>
+            {% endif %}
+          </td>
+          <td><a href="/admin/users/{{ item.id }}/edit">Редактировать</a></td>
+        </tr>
+      {% else %}
+        <tr><td colspan="6" class="empty">Пользователей пока нет</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+{% endblock %}
