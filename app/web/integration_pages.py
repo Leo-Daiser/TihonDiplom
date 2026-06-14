@@ -7,8 +7,10 @@ from app.core.security import decode_access_token
 from app.db.session import get_db
 from app.models.notification import Notification
 from app.models.user import User
+from app.web.admin_user_pages import router as admin_user_pages_router
 
 router = APIRouter(tags=["web-integrations"])
+router.include_router(admin_user_pages_router)
 templates = Jinja2Templates(directory="app/templates")
 
 
