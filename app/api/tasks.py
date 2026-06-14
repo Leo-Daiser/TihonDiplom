@@ -1,4 +1,7 @@
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.api.deps import get_current_user, require_roles
@@ -58,20 +61,21 @@ def ensure_task_access(task: Task, current_user: User) -> None:
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Нет доступа к задаче")
 
 
-@router.get("", response_model=list[TaskResponse])
-def list_tasks(
-    status_code: str | None = Query(default=None),
-    priority_code: str | None = Query(default=None),
-    assignee_id: int | None = Query(default=None),
-    source_type: str | None = Query(default=None),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> list[Task]:
-    """Список задач фильтруется по основным полям, для исполнителя дополнительно ограничивается его задачами."""
-    query = build_task_query(db)
-
-    if current_user.role.code == "worker":
-        query = query.filter((Task.assignee_id == current_user.id) | (Task.creator_id == current_user.id))
+def apply_task_filters(
+    query,
+    *,
+    q: str | None = None,
+    status_code: str | None = None,
+    priority_code: str | None = None,
+    assignee_id: int | None = None,
+    source_type: str | None = None,
+    created_from: datetime | None = None,
+    created_to: datetime | None = None,
+):
+    """Фильтры задач используются и API, и web-страницами."""
+    if q:
+        search = f"%{q.strip()}%"
+        query = query.filter(or_(Task.title.ilike(search), Task.description.ilike(search)))
     if status_code:
         query = query.join(Task.status).filter(TaskStatus.code == status_code)
     if priority_code:
@@ -80,6 +84,40 @@ def list_tasks(
         query = query.filter(Task.assignee_id == assignee_id)
     if source_type:
         query = query.filter(Task.source_type == source_type)
+    if created_from is not None:
+        query = query.filter(Task.created_at >= created_from)
+    if created_to is not None:
+        query = query.filter(Task.created_at <= created_to)
+    return query
+
+
+@router.get("", response_model=list[TaskResponse])
+def list_tasks(
+    q: str | None = Query(default=None),
+    status_code: str | None = Query(default=None),
+    priority_code: str | None = Query(default=None),
+    assignee_id: int | None = Query(default=None),
+    source_type: str | None = Query(default=None),
+    created_from: datetime | None = Query(default=None),
+    created_to: datetime | None = Query(default=None),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[Task]:
+    """Список задач фильтруется по основным полям, для исполнителя дополнительно ограничивается его задачами."""
+    query = build_task_query(db)
+
+    if current_user.role.code == "worker":
+        query = query.filter((Task.assignee_id == current_user.id) | (Task.creator_id == current_user.id))
+    query = apply_task_filters(
+        query,
+        q=q,
+        status_code=status_code,
+        priority_code=priority_code,
+        assignee_id=assignee_id,
+        source_type=source_type,
+        created_from=created_from,
+        created_to=created_to,
+    )
 
     return query.order_by(Task.created_at.desc()).all()
 
