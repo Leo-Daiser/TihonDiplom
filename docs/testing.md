@@ -7,7 +7,14 @@
 Запуск:
 
 ```bash
-docker compose -f docker-compose.test.yml up --build --abort-on-container-exit
+sudo docker compose -f docker-compose.test.yml up --build --abort-on-container-exit --exit-code-from tests
+```
+
+Если Docker сообщает о старом конфликтующем тестовом контейнере, можно удалить только тестовые контейнеры без удаления volume:
+
+```bash
+sudo docker rm -f tihon_diplom_tests tihon_diplom_test_db
+sudo docker network prune -f
 ```
 
 Локальный запуск возможен только при наличии тестовой PostgreSQL-базы:
