@@ -116,10 +116,8 @@ def tasks_page(request: Request, q: str | None = None, status_code: str | None =
         query = query.filter(Task.assignee_id == assignee_filter)
     if source_type:
         query = query.filter(Task.source_type == source_type)
-    return templates.TemplateResponse(
-        "tasks.html",
-        form_context(request, user, db, tasks=query.order_by(Task.created_at.desc()).all(), filters={"q": q, "status_code": status_code, "priority_code": priority_code, "assignee_id": assignee_filter, "source_type": source_type}, can_manage=user_can_manage_tasks(user)),
-    )
+    context = form_context(request, user, db, tasks=query.order_by(Task.created_at.desc()).all(), filters={"q": q, "status_code": status_code, "priority_code": priority_code, "assignee_id": assignee_filter, "source_type": source_type}, can_manage=user_can_manage_tasks(user))
+    return templates.TemplateResponse(request, "tasks.html", context)
 
 
 @router.get("/tasks/new", response_class=HTMLResponse)
@@ -128,7 +126,8 @@ def new_task_page(request: Request, db: Session = Depends(get_db)):
     if user is None:
         return redirect_to_login()
     require_task_manager(user)
-    return templates.TemplateResponse("task_form.html", form_context(request, user, db, task=None, page_title="Новая задача", form_action="/tasks/new", submit_label="Создать задачу"))
+    context = form_context(request, user, db, task=None, page_title="Новая задача", form_action="/tasks/new", submit_label="Создать задачу")
+    return templates.TemplateResponse(request, "task_form.html", context)
 
 
 @router.post("/tasks/new")
@@ -154,7 +153,8 @@ def task_detail_page(request: Request, task_id: int, db: Session = Depends(get_d
         return redirect_to_login()
     task = get_task_for_user(db, task_id, user)
     statuses = db.query(TaskStatus).order_by(TaskStatus.sort_order.asc()).all()
-    return templates.TemplateResponse("task_detail.html", {"request": request, "user": user, "task": task, "statuses": statuses, "can_manage": user_can_manage_tasks(user)})
+    context = {"request": request, "user": user, "task": task, "statuses": statuses, "can_manage": user_can_manage_tasks(user)}
+    return templates.TemplateResponse(request, "task_detail.html", context)
 
 
 @router.get("/tasks/{task_id}/edit", response_class=HTMLResponse)
@@ -164,7 +164,8 @@ def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)
         return redirect_to_login()
     require_task_manager(user)
     task = get_task_for_user(db, task_id, user)
-    return templates.TemplateResponse("task_form.html", form_context(request, user, db, task=task, page_title=f"Редактирование задачи #{task.id}", form_action=f"/tasks/{task.id}/edit", submit_label="Сохранить изменения"))
+    context = form_context(request, user, db, task=task, page_title=f"Редактирование задачи #{task.id}", form_action=f"/tasks/{task.id}/edit", submit_label="Сохранить изменения")
+    return templates.TemplateResponse(request, "task_form.html", context)
 
 
 @router.post("/tasks/{task_id}/edit")
