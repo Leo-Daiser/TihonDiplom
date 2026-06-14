@@ -6,7 +6,12 @@
     <p class="eyebrow">Задачи</p>
     <h1>Список задач</h1>
   </div>
-  {% if can_manage %}<a class="primary-link" href="/tasks/new">Новая задача</a>{% endif %}
+  <div class="page-actions">
+    {% if user and user.role.code in ['admin', 'manager'] %}
+    <a class="secondary-link" href="/reports/tasks.csv">Экспорт CSV</a>
+    <a class="primary-link" href="/tasks/new">Новая задача</a>
+    {% endif %}
+  </div>
 </section>
 
 <section class="panel compact-panel">
