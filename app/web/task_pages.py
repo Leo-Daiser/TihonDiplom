@@ -77,6 +77,12 @@ def parse_deadline(value: str | None) -> datetime | None:
     return datetime.fromisoformat(value)
 
 
+def parse_optional_int(value: str | int | None) -> int | None:
+    if value in (None, ""):
+        return None
+    return int(value)
+
+
 def form_context(request: Request, user: User, db: Session, **extra):
     context = {
         "request": request,
@@ -95,7 +101,7 @@ def tasks_page(
     q: str | None = None,
     status_code: str | None = None,
     priority_code: str | None = None,
-    assignee_id: int | None = None,
+    assignee_id: str | None = None,
     source_type: str | None = None,
     db: Session = Depends(get_db),
 ):
@@ -103,6 +109,7 @@ def tasks_page(
     if user is None:
         return redirect_to_login()
 
+    assignee_filter = parse_optional_int(assignee_id)
     query = apply_task_scope(task_query(db), user)
     if q:
         like = f"%{q.strip()}%"
@@ -111,8 +118,8 @@ def tasks_page(
         query = query.join(Task.status).filter(TaskStatus.code == status_code)
     if priority_code:
         query = query.join(Task.priority).filter(TaskPriority.code == priority_code)
-    if assignee_id is not None:
-        query = query.filter(Task.assignee_id == assignee_id)
+    if assignee_filter is not None:
+        query = query.filter(Task.assignee_id == assignee_filter)
     if source_type:
         query = query.filter(Task.source_type == source_type)
 
@@ -123,7 +130,7 @@ def tasks_page(
             user,
             db,
             tasks=query.order_by(Task.created_at.desc()).all(),
-            filters={"q": q, "status_code": status_code, "priority_code": priority_code, "assignee_id": assignee_id, "source_type": source_type},
+            filters={"q": q, "status_code": status_code, "priority_code": priority_code, "assignee_id": assignee_filter, "source_type": source_type},
             can_manage=user_can_manage_tasks(user),
         ),
     )
@@ -142,14 +149,14 @@ def new_task_page(request: Request, db: Session = Depends(get_db)):
 
 
 @router.post("/tasks/new")
-def create_task_from_form(request: Request, title: str = Form(...), description: str | None = Form(default=None), assignee_id: int | None = Form(default=None), priority_code: str = Form("medium"), status_code: str = Form("new"), deadline: str | None = Form(default=None), db: Session = Depends(get_db)):
+def create_task_from_form(request: Request, title: str = Form(...), description: str | None = Form(default=None), assignee_id: str | None = Form(default=None), priority_code: str = Form("medium"), status_code: str = Form("new"), deadline: str | None = Form(default=None), db: Session = Depends(get_db)):
     user = get_user_from_cookie(request, db)
     if user is None:
         return redirect_to_login()
     require_task_manager(user)
     status_obj = db.query(TaskStatus).filter(TaskStatus.code == status_code).one()
     priority_obj = db.query(TaskPriority).filter(TaskPriority.code == priority_code).one()
-    task = Task(title=title, description=description, creator_id=user.id, assignee_id=assignee_id, status_id=status_obj.id, priority_id=priority_obj.id, source_type="manual", deadline=parse_deadline(deadline))
+    task = Task(title=title, description=description, creator_id=user.id, assignee_id=parse_optional_int(assignee_id), status_id=status_obj.id, priority_id=priority_obj.id, source_type="manual", deadline=parse_deadline(deadline))
     db.add(task)
     db.flush()
     write_audit_log(db, actor_id=user.id, entity_type="task", entity_id=task.id, action="create_task", diff={"title": title})
@@ -181,7 +188,7 @@ def edit_task_page(request: Request, task_id: int, db: Session = Depends(get_db)
 
 
 @router.post("/tasks/{task_id}/edit")
-def edit_task_submit(request: Request, task_id: int, title: str = Form(...), description: str | None = Form(default=None), assignee_id: int | None = Form(default=None), priority_code: str = Form(...), status_code: str = Form(...), deadline: str | None = Form(default=None), db: Session = Depends(get_db)):
+def edit_task_submit(request: Request, task_id: int, title: str = Form(...), description: str | None = Form(default=None), assignee_id: str | None = Form(default=None), priority_code: str = Form(...), status_code: str = Form(...), deadline: str | None = Form(default=None), db: Session = Depends(get_db)):
     user = get_user_from_cookie(request, db)
     if user is None:
         return redirect_to_login()
@@ -189,6 +196,7 @@ def edit_task_submit(request: Request, task_id: int, title: str = Form(...), des
     task = get_task_for_user(db, task_id, user)
     status_obj = db.query(TaskStatus).filter(TaskStatus.code == status_code).one()
     priority_obj = db.query(TaskPriority).filter(TaskPriority.code == priority_code).one()
+    new_assignee_id = parse_optional_int(assignee_id)
     new_deadline = parse_deadline(deadline)
     changes = {}
 
@@ -198,9 +206,9 @@ def edit_task_submit(request: Request, task_id: int, title: str = Form(...), des
     if description != task.description:
         changes["description"] = {"old": task.description, "new": description}
         task.description = description
-    if assignee_id != task.assignee_id:
-        changes["assignee_id"] = {"old": task.assignee_id, "new": assignee_id}
-        task.assignee_id = assignee_id
+    if new_assignee_id != task.assignee_id:
+        changes["assignee_id"] = {"old": task.assignee_id, "new": new_assignee_id}
+        task.assignee_id = new_assignee_id
     if status_obj.id != task.status_id:
         changes["status"] = {"old": task.status.code, "new": status_obj.code}
         task.status_id = status_obj.id
