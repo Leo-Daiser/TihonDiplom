@@ -1,12 +1,10 @@
-from app.models import AuditLog, Task, TaskComment, TaskStatus
+from app.models import AuditLog, Task, TaskComment, TaskStatus, User
 from tests.conftest import auth_header_for, create_task
 
 
 def test_admin_can_create_task_through_api(client, db_session):
     headers = auth_header_for(db_session, "admin@example.com")
-    worker = db_session.query(Task).first()
-    assignee = db_session.query(Task).first()
-    worker_id = db_session.execute("SELECT id FROM users WHERE email = 'worker@example.com'").scalar_one()
+    worker = db_session.query(User).filter(User.email == "worker@example.com").one()
 
     response = client.post(
         "/api/v1/tasks",
@@ -14,7 +12,7 @@ def test_admin_can_create_task_through_api(client, db_session):
         json={
             "title": "API task",
             "description": "Created from API test",
-            "assignee_id": worker_id,
+            "assignee_id": worker.id,
             "status_code": "new",
             "priority_code": "medium",
         },
