@@ -6,7 +6,9 @@
     <p class="eyebrow">Обзор</p>
     <h1>Рабочая панель</h1>
   </div>
+  {% if user and user.role.code in ['admin', 'manager'] %}
   <a class="primary-link" href="/tasks/new">Новая задача</a>
+  {% endif %}
 </section>
 
 <section class="stats-grid">
