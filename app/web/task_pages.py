@@ -60,7 +60,7 @@ def task_query(db: Session):
         joinedload(Task.assignee),
         joinedload(Task.status),
         joinedload(Task.priority),
-        selectinload(Task.comments),
+        selectinload(Task.comments).joinedload(TaskComment.author),
         selectinload(Task.attachments),
     )
 
