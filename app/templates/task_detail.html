@@ -58,7 +58,7 @@
   <div class="panel-head"><h2>Комментарии</h2></div>
   <div class="comments">
     {% for comment in task.comments %}
-    <article class="comment"><div class="comment-head"><strong>Пользователь #{{ comment.author_id }}</strong><span>{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span></div><p>{{ comment.text }}</p></article>
+    <article class="comment"><div class="comment-head"><strong>{{ comment.author.full_name if comment.author else 'Пользователь #' ~ comment.author_id }}</strong><span>{{ comment.created_at.strftime('%d.%m.%Y %H:%M') }}</span></div><p>{{ comment.text }}</p></article>
     {% else %}<p class="empty left">Комментариев пока нет</p>{% endfor %}
   </div>
   <form method="post" action="/tasks/{{ task.id }}/comments" class="comment-form">
